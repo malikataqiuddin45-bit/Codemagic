@@ -1,13 +1,13 @@
 pluginManagement {
   repositories {
-    gradlePluginPortal()
     google()
     mavenCentral()
+    gradlePluginPortal()
   }
 }
 
 dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+  repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
   repositories {
     google()
     mavenCentral()
@@ -17,13 +17,13 @@ dependencyResolutionManagement {
 rootProject.name = "app"
 include(":app")
 
-// Expo/RN gradle includes (tak wajib untuk semua template, tapi selamat)
-def expoPluginsPath = new File(
-  commandLine("node", "--print", "require.resolve('expo-modules-autolinking/package.json', { paths: [require.resolve('expo/package.json')] })")
-).getParentFile()
-includeBuild(expoPluginsPath)
+// Optional includes (tak wajib; hanya jika wujud)
+def rnGradlePlugin = new File("${rootDir}/../node_modules/react-native-gradle-plugin")
+if (rnGradlePlugin.exists()) {
+  includeBuild(rnGradlePlugin)
+}
 
-def rnGradlePluginPath = new File("../node_modules/react-native-gradle-plugin")
-if (rnGradlePluginPath.exists()) {
-  includeBuild(rnGradlePluginPath)
+def expoAutoLink = new File("${rootDir}/../node_modules/expo-modules-autolinking")
+if (expoAutoLink.exists()) {
+  includeBuild(expoAutoLink)
 }
