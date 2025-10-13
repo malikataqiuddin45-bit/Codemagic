@@ -1,0 +1,33 @@
+workflows:
+  expo54-android:
+    name: Expo 54 Android APK
+    environment:
+      node: 20
+      java: 17
+      android_signing:
+        - keystore_reference   # configure in CodeMagic UI
+    scripts:
+      - name: Install CLIs
+        script: |
+          npm i -g expo-cli eas-cli
+      - name: Install deps
+        script: |
+          npm ci || yarn install || pnpm install
+      - name: Expo prebuild (Android only)
+        script: |
+          npx expo prebuild --platform android
+      - name: Fix Maven repos (after prebuild creates android/)
+        script: |
+          bash 01_repo_fix.sh
+      - name: Build release APK
+        script: |
+          cd android
+          ./gradlew clean
+          ./gradlew assembleRelease -x lint
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - $CM_BUILD_DIR/android/.gradle
+        - $HOME/.gradle/caches
