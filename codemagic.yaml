@@ -15,6 +15,15 @@ workflows:
         script: |
           npm ci
 
+      - name: Ensure android folder exists
+        script: |
+          if [ ! -d "android" ]; then
+            echo "⚙️ Android folder not found. Running Expo prebuild..."
+            npx expo prebuild --platform android --clean
+          else
+            echo "✅ Android folder exists."
+          fi
+
       - name: Expo prebuild (android)
         script: |
           npx expo prebuild --platform android --clean
@@ -30,10 +39,3 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
-    publishing:
-      email:
-        recipients:
-          - \$CM_EMAIL
-        notify:
-          success: true
-          failure: true
