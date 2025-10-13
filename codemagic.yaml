@@ -1,21 +1,31 @@
 workflows:
   expo54-android:
-    name: Expo 54 Android APK (stable verify)
+    name: Expo 54 Android APK
     environment:
       node: 20
       java: 17
-      vars: { CI: "true", EXPO_NO_TELEMETRY: "1" }
+      vars:
+        CI: "true"
+        EXPO_NO_TELEMETRY: "1"
+
     scripts:
-      - name: Install deps
+      - name: Install dependencies
         script: |
-          rm -f pnpm-lock.yaml yarn.lock
+          rm -f yarn.lock pnpm-lock.yaml
           npm ci || npm install
 
-      - name: Expo prebuild
+      - name: Expo prebuild (Android)
         script: |
           npx expo prebuild --platform android --non-interactive --clean
+          test -f android/settings.gradle || (echo "android/settings.gradle missing" && exit 1)
 
-      - name: Rewrite settings.gradle
+      - name: Enforce Gradle wrapper 8.6
+        script: |
+          cd android
+          ./gradlew wrapper --gradle-version 8.6 --distribution-type bin
+          ./gradlew --version
+
+      - name: Normalize settings.gradle
         script: |
           cat > android/settings.gradle <<'GRADLE'
           pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }
@@ -31,7 +41,7 @@ workflows:
           if (expoAutolinking.exists()) { includeBuild(expoAutolinking) }
           GRADLE
 
-      - name: Rewrite root build.gradle
+      - name: Normalize root build.gradle
         script: |
           cat > android/build.gradle <<'GRADLE'
           // Root-level build file
@@ -40,14 +50,10 @@ workflows:
             dependencies {
               classpath("com.android.tools.build:gradle:8.5.2")
               classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
-              // ❌ Jangan tambah react-native-gradle-plugin di sini
             }
           }
           allprojects { repositories { google(); mavenCentral() } }
           GRADLE
-
-      - name: Verify classpath versions (stable)
-        script: bash ci_verify_gradle.sh
 
       - name: Build release APK
         script: |
