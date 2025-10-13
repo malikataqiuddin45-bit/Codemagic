@@ -1,47 +1,39 @@
 workflows:
-  android-release:
-    name: Android Release (Expo 54)
-    max_build_duration: 60
-    instance_type: mac_mini_m2
+  react-native-android:
+    name: React Native Android Signed
     environment:
-      node: 20
-      java: 17
-      vars:
-        # ====== Keystore ENV (isi di Codemagic > Environment variables) ======
-        # CM_KEYSTORE              -> Base64 of keystore
-        # CM_KEYSTORE_PATH         -> forensiknama.keystore
-        # CM_KEYSTORE_PASSWORD     -> forensik123
-        # CM_KEY_ALIAS             -> forensiknama
-        # CM_KEY_PASSWORD          -> forensik123
-        EXPO_NO_TELEMETRY: "1"
-    cache:
-      cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
-        - $CM_BUILD_DIR/node_modules
+      groups:
+        - keystore
     scripts:
       - name: Decode keystore
         script: |
-          mkdir -p android/keystore
-          if [ -n "${CM_KEYSTORE:-}" ]; then
-            echo "$CM_KEYSTORE" | base64 --decode > android/keystore/$CM_KEYSTORE_PATH
-            echo "Keystore decoded -> android/keystore/$CM_KEYSTORE_PATH"
-          else
-            echo "!! CM_KEYSTORE tidak wujud. Set dulu di Codemagic ENV." && exit 1
-          fi
+          mkdir -p android
+          echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
+          ls -lah android | sed -n 's/^/  /p'
+
       - name: Install dependencies
         script: |
           npm ci
+
       - name: Expo prebuild (android)
         script: |
-          npx expo prebuild --platform android --clean --no-install
+          npx expo prebuild --platform android --clean
+
       - name: Build signed release APK
         script: |
           cd android
-          ./gradlew clean :app:assembleRelease \
-            -Pandroid.injected.signing.store.file=$PWD/keystore/$CM_KEYSTORE_PATH \
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH \
             -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
+
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/apk/release/*.apk
+    publishing:
+      email:
+        recipients:
+          - \$CM_EMAIL
+        notify:
+          success: true
+          failure: true
