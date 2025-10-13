@@ -17,6 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "app"
 include(":app")
 
+// Optional includeBuild (guna kalau wujud)
 def rnGradlePlugin = new File("${rootDir}/../node_modules/react-native-gradle-plugin")
 if (rnGradlePlugin.exists()) { includeBuild(rnGradlePlugin) }
 

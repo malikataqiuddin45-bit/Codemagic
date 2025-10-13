@@ -6,9 +6,10 @@ buildscript {
         mavenCentral()
     }
     dependencies {
+        // Versi EXPLICIT; JANGAN kosong
         classpath("com.android.tools.build:gradle:8.5.2")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
-        // ❌ JANGAN letak react-native-gradle-plugin di sini (kita includeBuild dari settings.gradle)
+        // ❌ JANGAN letak react-native-gradle-plugin di sini. Ia diurus melalui includeBuild() dalam settings.gradle
     }
 }
 
@@ -16,7 +17,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // JitPack hanya jika perlu, dan letak paling bawah:
-        // maven { url "https://jitpack.io" }
+        // maven { url "https://jitpack.io" } // hanya jika benar-benar perlu
     }
 }
