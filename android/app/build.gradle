@@ -1,5 +1,4 @@
 apply plugin: "com.android.application"
-id("expo.modules.gradle")
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
