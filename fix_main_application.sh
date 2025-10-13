@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+DIR=android/app/src/main/java/com/redsulphur/forensiknama
+mkdir -p "$DIR"
+cat > "$DIR/MainApplication.kt" <<'KT'
 package com.redsulphur.forensiknama
 
 import android.app.Application
@@ -28,3 +33,5 @@ class MainApplication : Application(), ReactApplication {
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }
+KT
+echo "✅ MainApplication.kt ditulis"

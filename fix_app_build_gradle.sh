@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p android/app
+cat > android/app/build.gradle <<'GRADLE'
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
@@ -24,3 +28,5 @@ dependencies {
   implementation("expo.modules:expo-modules-core")
   implementation("com.facebook.react:react-android")
 }
+GRADLE
+echo "✅ app/build.gradle ditulis"

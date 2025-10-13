@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+DIR=android/app/src/main/java/com/redsulphur/forensiknama
+mkdir -p "$DIR"
+cat > "$DIR/MainActivity.kt" <<'KT'
 package com.redsulphur.forensiknama
 
 import com.facebook.react.ReactActivity
@@ -14,3 +19,5 @@ class MainActivity : ReactActivity() {
     )
   }
 }
+KT
+echo "✅ MainActivity.kt ditulis"
