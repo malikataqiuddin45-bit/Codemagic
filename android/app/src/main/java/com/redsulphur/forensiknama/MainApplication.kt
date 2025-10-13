@@ -13,8 +13,9 @@ class MainApplication : Application(), ReactApplication {
     ReactNativeHostWrapper(this,
       object : DefaultReactNativeHost(this) {
         override fun getUseDeveloperSupport() = BuildConfig.DEBUG
-        override fun getPackages() = packageList
-      }
+    override fun getPackages(): List<ReactPackage> {
+        return PackageList(this).packages
+    }
     )
   }
 
