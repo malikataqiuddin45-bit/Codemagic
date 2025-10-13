@@ -1,3 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+YML=codemagic.yaml
+cat > "$YML" <<'YAML'
 workflows:
   expo54_android_apk:
     name: Expo 54 Android APK (with Kotlin debug)
@@ -46,3 +51,6 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/**/*.apk
+YAML
+
+echo "✅ Wrote $YML (workflow: expo54_android_apk)"

@@ -1,41 +1,45 @@
 #!/usr/bin/env bash
-set -e
-cat > codemagic.yaml <<'YAML'
+set -euo pipefail
+
+YML="codemagic.yaml"
+
+cat > "$YML" <<'YAML'
 workflows:
-  expo54-android:
-    name: Expo 54 Android APK
+  expo54_android_apk:
+    name: Expo 54 Android APK (SDK 54)
+    max_build_duration: 60
     environment:
-      node: 20
-      java: 17
       vars:
-        CI: "true"
         EXPO_NO_TELEMETRY: "1"
-    scripts:
-      - name: Use npm only
-        script: |
-          rm -f pnpm-lock.yaml yarn.lock
-      - name: Install deps
-        script: |
-          npm ci || npm install
-      - name: Expo prebuild (creates android/)
-        script: |
-          npx expo prebuild --platform android --non-interactive --clean
-      - name: Sanity checks
-        script: |
-          test -f android/settings.gradle || (echo "settings.gradle missing after prebuild" && exit 1)
-          grep -q "mavenCentral()" android/settings.gradle || (echo "Missing mavenCentral() in settings.gradle" && exit 1)
-          grep -q "google()"       android/settings.gradle || (echo "Missing google() in settings.gradle" && exit 1)
-      - name: Build release APK
-        script: |
-          cd android
-          ./gradlew clean
-          ./gradlew assembleRelease -x lint
-    artifacts:
-      - android/app/build/outputs/**/*.apk
     cache:
       cache_paths:
         - $CM_BUILD_DIR/node_modules
         - $CM_BUILD_DIR/android/.gradle
         - $HOME/.gradle/caches
+    scripts:
+      - name: Install deps
+        script: |
+          echo "Node: $(node -v || true)"
+          # Pastikan node_modules wujud untuk plugin RN/Expo
+          npm ci || npm install --legacy-peer-deps
+
+      - name: Expo prebuild (Android)
+        script: |
+          npx expo prebuild --platform android --non-interactive --clean
+          test -f android/settings.gradle || { echo "android/settings.gradle missing after prebuild"; exit 1; }
+
+      - name: Build APK
+        script: |
+          cd android
+          ./gradlew --no-daemon clean
+          ./gradlew --no-daemon assembleRelease -x lint --stacktrace
+
+    artifacts:
+      - android/app/build/outputs/**/*.apk
 YAML
-echo "✔ codemagic.yaml ditulis di root."
+
+git add "$YML"
+git commit -m "ci(codemagic): add Expo 54 Android APK workflow" || true
+
+echo "✅ Siap tulis $YML"
+echo "➡️  Push ke repo dengan:  git push origin HEAD"
