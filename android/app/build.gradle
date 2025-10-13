@@ -180,3 +180,31 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+dependencies {
+  implementation("expo.modules:expo-modules-core")
+  implementation("expo.modules:expo-modules-application")
+}
+
+android {
+    // Pastikan compileSdk & minSdk ikut Expo 54 (prebuild akan set),
+    // biar Gradle auto-baca dari versionsCatalogs/gradle.properties
+}
+
+signingConfigs {
+    release {
+        if (System.getenv("CI")) {
+            storeFile file(System.getenv("CM_KEYSTORE_PATH"))
+            storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+            keyAlias System.getenv("CM_KEY_ALIAS")
+            keyPassword System.getenv("CM_KEY_PASSWORD")
+        }
+    }
+}
+
+buildTypes {
+    release {
+        signingConfig signingConfigs.release
+        minifyEnabled false
+    }
+}

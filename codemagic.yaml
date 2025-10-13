@@ -1,51 +1,26 @@
 workflows:
-  react-native-android:
-    name: React Native Android Signed APK
-    max_build_duration: 60
+  expo54-android:
+    name: Expo 54 Android (Signed APK)
     instance_type: mac_mini_m2
+    max_build_duration: 60
+
     environment:
-      groups:
-        - Keystore        # Mesti sama dgn nama group dalam Codemagic (huruf besar K)
-      vars:
-        CM_KEYSTORE_PATH: "forensiknama.keystore"
-        CI: "true"
+      # GANTI 'MY_RELEASE_KEY' dgn nama keystore reference yang kau upload
+      # di App settings → Code signing → Android keystores
+      android_signing:
+        - MY_RELEASE_KEY
 
     scripts:
-      - name: Decode keystore
-        script: |
-          python3 - <<'PY'
-          import os, sys, base64, pathlib
-          b64 = os.environ.get("CM_KEYSTORE", "").strip()
-          out = os.environ.get("CM_KEYSTORE_PATH", "forensiknama.keystore")
-          if not b64:
-              print("❌ CM_KEYSTORE kosong. Semak Environment variables & group import.")
-              sys.exit(1)
-          try:
-              data = base64.b64decode(b64)
-          except Exception as e:
-              print("❌ Gagal decode base64:", e)
-              sys.exit(1)
-          pathlib.Path("android").mkdir(exist_ok=True)
-          with open(out, "wb") as f:
-              f.write(data)
-          print(f"✅ Keystore ditulis -> {out}")
-          PY
-          ls -lah forensiknama.keystore || echo "⚠️ Tiada fail keystore ditemui."
+      - name: Install deps
+        script: npm ci
 
-      - name: Install dependencies
-        script: |
-          npm ci
-
-      - name: Expo prebuild (android, force clean)
-        script: |
-          npx expo prebuild --platform android --clean --non-interactive
+      - name: Expo prebuild (android)
+        script: npx expo prebuild --platform android --clean --non-interactive
 
       - name: Build signed release APK
         script: |
           cd android
           ./gradlew assembleRelease --stacktrace
 
-    publishing:
-      email:
-        recipients:
-          - your@email.com
+    artifacts:
+      - android/app/build/outputs/apk/release/*.apk
