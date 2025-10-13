@@ -1,51 +1,51 @@
 workflows:
   react-native-android:
-    name: React Native Android Signed
+    name: React Native Android Signed APK
     max_build_duration: 60
     instance_type: mac_mini_m2
-
     environment:
+      groups:
+        - Keystore        # Mesti sama dgn nama group dalam Codemagic (huruf besar K)
       vars:
-        # Nilai bawah ni MESTI sama dengan yang kau isi di Codemagic (Environment variables)
-        CM_KEYSTORE_PATH: forensiknama.keystore
-        CM_KEYSTORE_PASSWORD: forensik123
-        CM_KEY_ALIAS: forensiknama
-        CM_KEY_PASSWORD: forensik123
+        CM_KEYSTORE_PATH: "forensiknama.keystore"
+        CI: "true"
 
     scripts:
       - name: Decode keystore
         script: |
-          mkdir -p android
-          if [ -z "$CM_KEYSTORE" ]; then
-            echo "❌ CM_KEYSTORE kosong. Pergi isi di Codemagic → Environment variables"; exit 1
-          fi
-          echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
-          echo "✅ Keystore decoded -> $CM_KEYSTORE_PATH"
-          ls -lh "$CM_KEYSTORE_PATH"
+          python3 - <<'PY'
+          import os, sys, base64, pathlib
+          b64 = os.environ.get("CM_KEYSTORE", "").strip()
+          out = os.environ.get("CM_KEYSTORE_PATH", "forensiknama.keystore")
+          if not b64:
+              print("❌ CM_KEYSTORE kosong. Semak Environment variables & group import.")
+              sys.exit(1)
+          try:
+              data = base64.b64decode(b64)
+          except Exception as e:
+              print("❌ Gagal decode base64:", e)
+              sys.exit(1)
+          pathlib.Path("android").mkdir(exist_ok=True)
+          with open(out, "wb") as f:
+              f.write(data)
+          print(f"✅ Keystore ditulis -> {out}")
+          PY
+          ls -lah forensiknama.keystore || echo "⚠️ Tiada fail keystore ditemui."
 
       - name: Install dependencies
         script: |
           npm ci
 
-      - name: Expo prebuild (force clean)
+      - name: Expo prebuild (android, force clean)
         script: |
           npx expo prebuild --platform android --clean --non-interactive
-          echo "✅ Expo prebuild done"
 
       - name: Build signed release APK
         script: |
           cd android
-          ./gradlew --no-daemon assembleRelease \
-            -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH \
-            -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD \
-            -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS \
-            -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
+          ./gradlew assembleRelease --stacktrace
 
-    artifacts:
-      - android/app/build/outputs/apk/release/*.apk
-
-    cache:
-      cache_paths:
-        - ~/.gradle/caches
-        - ~/.gradle/wrapper
-        - node_modules
+    publishing:
+      email:
+        recipients:
+          - your@email.com
