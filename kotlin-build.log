@@ -1,0 +1,18 @@
+Initialized native services in: /home/codespace/.gradle/native
+Initialized jansi services in: /home/codespace/.gradle/native
+Received JVM installation metadata from '/usr/local/sdkman/candidates/java/21.0.7-ms': {JAVA_HOME=/usr/local/sdkman/candidates/java/21.0.7-ms, JAVA_VERSION=21.0.7, JAVA_VENDOR=Microsoft, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.7+6-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.7+6-LTS, VM_VENDOR=Microsoft, OS_ARCH=amd64}
+Checking if the launcher JVM can be re-used for build. To be re-used, the launcher JVM needs to match the parameters required for the build process: --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx4g -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.6/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Starting process 'Gradle build daemon'. Working directory: /home/codespace/.gradle/daemon/8.6 Command: /usr/local/sdkman/candidates/java/21.0.7-ms/bin/java --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx4g -Dfile.encoding=UTF-8 -Duser.country -Duser.language=en -Duser.variant -cp /home/codespace/.gradle/wrapper/dists/gradle-8.6-bin/afr5mpiioh2wthjmwnkmdsd5w/gradle-8.6/lib/gradle-launcher-8.6.jar -javaagent:/home/codespace/.gradle/wrapper/dists/gradle-8.6-bin/afr5mpiioh2wthjmwnkmdsd5w/gradle-8.6/lib/agents/gradle-instrumentation-agent-8.6.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.6
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 4.244 secs.
+The client will now receive all logging from the daemon (pid: 1975). The daemon log file: /home/codespace/.gradle/daemon/8.6/daemon-1975.out.log
+Daemon will be stopped at the end of the build 
+Using 2 worker leases.
+Received JVM installation metadata from '/usr/local/sdkman/candidates/java/21.0.7-ms': {JAVA_HOME=/usr/local/sdkman/candidates/java/21.0.7-ms, JAVA_VERSION=21.0.7, JAVA_VENDOR=Microsoft, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.7+6-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.7+6-LTS, VM_VENDOR=Microsoft, OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Not watching /workspaces/Codemagic/android since the file system is not supported
+File system watching is active
+Starting Build
+Settings evaluated using settings file '/workspaces/Codemagic/android/settings.gradle'.
+Some of the file system contents retained in the virtual file system are on file systems that Gradle doesn't support watching. The relevant state was discarded to ensure changes to these locations are properly detected. You can override this by explicitly enabling file system watching.
