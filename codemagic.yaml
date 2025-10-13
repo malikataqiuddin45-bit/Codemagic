@@ -1,32 +1,47 @@
-# Check out https://docs.codemagic.io/yaml/building-a-react-native-app/ for more information
-# Please review and update values
-
 workflows:
-  react-native-android:
-    name: React Native Android
-    max_build_duration: 120
-    instance_type: linux_x2
-    environment:
-
-workflows:
-  react_native_unsigned:
-    name: "React Native Android (Unsigned)"
+  android-release:
+    name: Android Release (Expo 54)
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     environment:
+      node: 20
+      java: 17
       vars:
-        NODE_VERSION: 18.18.2
-      node: 18.18.2
+        # ====== Keystore ENV (isi di Codemagic > Environment variables) ======
+        # CM_KEYSTORE              -> Base64 of keystore
+        # CM_KEYSTORE_PATH         -> forensiknama.keystore
+        # CM_KEYSTORE_PASSWORD     -> forensik123
+        # CM_KEY_ALIAS             -> forensiknama
+        # CM_KEY_PASSWORD          -> forensik123
+        EXPO_NO_TELEMETRY: "1"
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/wrapper
+        - $CM_BUILD_DIR/node_modules
     scripts:
+      - name: Decode keystore
+        script: |
+          mkdir -p android/keystore
+          if [ -n "${CM_KEYSTORE:-}" ]; then
+            echo "$CM_KEYSTORE" | base64 --decode > android/keystore/$CM_KEYSTORE_PATH
+            echo "Keystore decoded -> android/keystore/$CM_KEYSTORE_PATH"
+          else
+            echo "!! CM_KEYSTORE tidak wujud. Set dulu di Codemagic ENV." && exit 1
+          fi
       - name: Install dependencies
         script: |
-          npm install
-      - name: Expo prebuild
+          npm ci
+      - name: Expo prebuild (android)
         script: |
-          npx expo prebuild --platform android
-      - name: Build APK unsigned
+          npx expo prebuild --platform android --clean --no-install
+      - name: Build signed release APK
         script: |
           cd android
-          ./gradlew assembleRelease
+          ./gradlew clean :app:assembleRelease \
+            -Pandroid.injected.signing.store.file=$PWD/keystore/$CM_KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$CM_KEY_PASSWORD
     artifacts:
       - android/app/build/outputs/**/*.apk

@@ -1,0 +1,11 @@
+# Check out https://docs.codemagic.io/yaml/building-a-react-native-app/ for more information
+# Please review and update values
+
+workflows:
+  react-native-android:
+    name: React Native Android
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+android_signing:
+  - my_keystore_ref
