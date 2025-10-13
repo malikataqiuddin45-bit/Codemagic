@@ -180,3 +180,15 @@ dependencies {
         implementation jscFlavor
     }
 }
+android {
+  compileSdkVersion 34
+  defaultConfig {
+    minSdkVersion 23
+    targetSdkVersion 34
+  }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+kotlinOptions { jvmTarget = "17" }
