@@ -1,27 +1,70 @@
 workflows:
   expo54-android:
-    name: Expo 54 Android APK
+    name: Expo 54 Android APK (safe settings.gradle)
     environment:
       node: 20
       java: 17
+      vars:
+        CI: "true"
+        EXPO_NO_TELEMETRY: "1"
     scripts:
-      - name: Install CLIs
-        script: |
-          npm i -g expo-cli eas-cli
       - name: Install deps
         script: |
-          npm ci || yarn install || pnpm install
-      - name: Expo prebuild (Android only)
+          rm -f pnpm-lock.yaml yarn.lock
+          npm ci || npm install
+
+      - name: Expo prebuild (creates android/)
         script: |
-          npx expo prebuild --platform android
-      - name: Fix Maven repos (after prebuild creates android/)
+          npx expo prebuild --platform android --non-interactive --clean
+          test -f android/settings.gradle || (echo "android/settings.gradle missing after prebuild" && exit 1)
+
+      - name: 🔒 Rewrite android/settings.gradle (Groovy DSL, no extra brace)
         script: |
-          bash 01_repo_fix.sh
+          cat > android/settings.gradle <<'GRADLE'
+          pluginManagement {
+            repositories {
+              gradlePluginPortal()
+              google()
+              mavenCentral()
+            }
+          }
+
+          dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+            repositories {
+              google()
+              mavenCentral()
+            }
+          }
+
+          rootProject.name = "app"
+          include(":app")
+
+          def rnGradlePlugin = new File("${rootDir}/../node_modules/react-native-gradle-plugin")
+          if (rnGradlePlugin.exists()) { includeBuild(rnGradlePlugin) }
+
+          def expoAutolinking = new File("${rootDir}/../node_modules/expo-modules-autolinking")
+          if (expoAutolinking.exists()) { includeBuild(expoAutolinking) }
+          GRADLE
+
+      - name: Verify settings.gradle before build
+        script: |
+          echo "----- settings.gradle (numbered) -----"
+          nl -ba android/settings.gradle
+          echo "----- quick checks -----"
+          grep -q 'mavenCentral()' android/settings.gradle && echo "✓ mavenCentral()" || (echo "✗ mavenCentral() missing" && exit 1)
+          grep -q 'google()' android/settings.gradle && echo "✓ google()" || (echo "✗ google() missing" && exit 1)
+          # braces must match
+          opens=$(grep -o '{' android/settings.gradle | wc -l | tr -d ' ')
+          closes=$(grep -o '}' android/settings.gradle | wc -l | tr -d ' ')
+          [ "$opens" = "$closes" ] || (echo "✗ brace mismatch: {=$opens }=$closes" && exit 1)
+
       - name: Build release APK
         script: |
           cd android
           ./gradlew clean
           ./gradlew assembleRelease -x lint
+
     artifacts:
       - android/app/build/outputs/**/*.apk
     cache:
