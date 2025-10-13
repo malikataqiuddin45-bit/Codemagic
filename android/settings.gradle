@@ -17,7 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "app"
 include(":app")
 
-// Optional includes (only if exist)
+// optional untuk react-native & expo autolinking
 def rnGradlePlugin = new File("${rootDir}/../node_modules/react-native-gradle-plugin")
 if (rnGradlePlugin.exists()) { includeBuild(rnGradlePlugin) }
 
