@@ -1,25 +1,11 @@
-pluginManagement {
-  repositories {
-    gradlePluginPortal()
-    google()
-    mavenCentral()
-  }
-}
-
+pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-  repositories {
-    google()
-    mavenCentral()
-  }
+  repositories { google(); mavenCentral() }
 }
-
 rootProject.name = "app"
 include(":app")
-
-// Optional includeBuild (guna kalau wujud)
 def rnGradlePlugin = new File("${rootDir}/../node_modules/react-native-gradle-plugin")
 if (rnGradlePlugin.exists()) { includeBuild(rnGradlePlugin) }
-
 def expoAutolinking = new File("${rootDir}/../node_modules/expo-modules-autolinking")
 if (expoAutolinking.exists()) { includeBuild(expoAutolinking) }
