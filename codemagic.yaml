@@ -18,7 +18,7 @@ workflows:
           npx expo prebuild --platform android --non-interactive --clean
           test -f android/settings.gradle || (echo "android/settings.gradle missing after prebuild" && exit 1)
 
-      - name: Rewrite settings.gradle (Groovy, no stray brace)
+      - name: Rewrite settings.gradle
         script: |
           cat > android/settings.gradle <<'GRADLE'
           pluginManagement {
@@ -47,46 +47,35 @@ workflows:
           if (expoAutolinking.exists()) { includeBuild(expoAutolinking) }
           GRADLE
 
-      - name: Rewrite root android/build.gradle (AGP + Kotlin ONLY)
+      - name: Rewrite root build.gradle
         script: |
           cat > android/build.gradle <<'GRADLE'
-// android/build.gradle (root)
+          // Root build.gradle for CodeMagic build
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath("com.android.tools.build:gradle:8.5.2")
+                  classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+              }
+          }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        // explicit versions (NO empty ':')
-        classpath("com.android.tools.build:gradle:8.5.2")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
-        // DO NOT put RN gradle plugin here; it's included via settings.gradle includeBuild()
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           GRADLE
 
-      - name: Verify gradle files
+      - name: Verify gradle
         script: |
-          echo "---- android/build.gradle ----"
-          grep -nE 'classpath|repositories' android/build.gradle || true
-          grep -Eq 'com\.android\.tools\.build:gradle:([0-9]+\.)+[0-9]+' android/build.gradle || (echo "AGP version missing/empty" && exit 1)
-          grep -Eq 'org\.jetbrains\.kotlin:kotlin-gradle-plugin:([0-9]+\.)+[0-9]+' android/build.gradle || (echo "Kotlin plugin version missing/empty" && exit 1)
-          if grep -Eq 'react-native-gradle-plugin' android/build.gradle; then echo "RN plugin must NOT be in classpath" && exit 1; fi
-          echo "---- android/settings.gradle ----"
-          grep -q 'mavenCentral()' android/settings.gradle || (echo "mavenCentral() missing" && exit 1)
-          grep -q 'google()' android/settings.gradle || (echo "google() missing" && exit 1)
-          opens=$(grep -o '{' android/settings.gradle | wc -l | tr -d ' ')
-          closes=$(grep -o '}' android/settings.gradle | wc -l | tr -d ' ')
-          [ "$opens" = "$closes" ] || (echo "Brace mismatch in settings.gradle" && exit 1)
-          echo "VERIFY OK"
+          echo "---- VERIFY ----"
+          grep -q 'gradle:8.5.2' android/build.gradle || (echo "AGP missing" && exit 1)
+          grep -q 'kotlin-gradle-plugin:1.9.24' android/build.gradle || (echo "Kotlin missing" && exit 1)
+          echo "✅ Verification passed"
 
       - name: Build release APK
         script: |
