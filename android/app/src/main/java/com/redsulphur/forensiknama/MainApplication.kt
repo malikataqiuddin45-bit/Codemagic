@@ -37,3 +37,5 @@ class MainApplication : Application(), ReactApplication {
     ApplicationLifecycleDispatcher.onConfigurationChanged(this, newConfig)
   }
 }
+import expo.modules.ReactNativeHostWrapper
+import expo.modules.ApplicationLifecycleDispatcher

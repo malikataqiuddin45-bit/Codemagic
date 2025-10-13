@@ -155,6 +155,8 @@ android {
 dependencies {
     implementation("expo.modules:expo-modules-core")
     implementation("com.facebook.react:react-android")
+    implementation("expo.modules:expo-modules-core")
+    implementation("com.facebook.react:react-android")
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
