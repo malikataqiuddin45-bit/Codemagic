@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat > codemagic.yaml <<'YAML'
 workflows:
   expo54_android_apk:
     name: Expo 54 Android APK (FULL ERRORS)
@@ -78,3 +82,8 @@ workflows:
     artifacts:
       - /tmp/*.log
       - android/app/build/outputs/**/*.apk
+YAML
+
+echo "✅ codemagic.yaml updated (FULL ERRORS)."
+echo "�� Commit & push:"
+echo "   git add codemagic.yaml && git commit -m 'ci: print full kotlin/gradle errors' && git push"
