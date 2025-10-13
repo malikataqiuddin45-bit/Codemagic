@@ -1,14 +1,8 @@
 workflows:
-  expo54-android:
-    name: Expo 54 Android (Signed APK)
+  expo54-android-unsigned:
+    name: Expo 54 Android Unsigned (Test Build)
     instance_type: mac_mini_m2
     max_build_duration: 60
-
-    environment:
-      # GANTI 'MY_RELEASE_KEY' dgn nama keystore reference yang kau upload
-      # di App settings → Code signing → Android keystores
-      android_signing:
-        - MY_RELEASE_KEY
 
     scripts:
       - name: Install deps
@@ -17,7 +11,7 @@ workflows:
       - name: Expo prebuild (android)
         script: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Build signed release APK
+      - name: Build unsigned APK
         script: |
           cd android
           ./gradlew assembleRelease --stacktrace
