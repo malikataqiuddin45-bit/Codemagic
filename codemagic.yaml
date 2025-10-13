@@ -2,18 +2,20 @@ workflows:
   react-native-android:
     name: React Native Android Signed
     environment:
-      groups:
-        - keystore
+      vars:
+        CM_KEYSTORE_PATH: forensiknama.keystore
+        CM_KEYSTORE_PASSWORD: forensik123
+        CM_KEY_ALIAS: forensiknama
+        CM_KEY_PASSWORD: forensik123
     scripts:
       - name: Decode keystore
         script: |
           mkdir -p android
           echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
-          ls -lah android | sed -n 's/^/  /p'
+          echo "✅ Keystore decoded -> $CM_KEYSTORE_PATH"
 
       - name: Install dependencies
-        script: |
-          npm ci
+        script: npm ci
 
       - name: Ensure android folder exists
         script: |
@@ -23,10 +25,6 @@ workflows:
           else
             echo "✅ Android folder exists."
           fi
-
-      - name: Expo prebuild (android)
-        script: |
-          npx expo prebuild --platform android --clean
 
       - name: Build signed release APK
         script: |
