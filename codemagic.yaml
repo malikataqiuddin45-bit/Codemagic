@@ -1,35 +1,41 @@
 workflows:
   react-native-android:
     name: React Native Android Signed
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
     environment:
       vars:
+        # Nilai bawah ni MESTI sama dengan yang kau isi di Codemagic (Environment variables)
         CM_KEYSTORE_PATH: forensiknama.keystore
         CM_KEYSTORE_PASSWORD: forensik123
         CM_KEY_ALIAS: forensiknama
         CM_KEY_PASSWORD: forensik123
+
     scripts:
       - name: Decode keystore
         script: |
           mkdir -p android
+          if [ -z "$CM_KEYSTORE" ]; then
+            echo "❌ CM_KEYSTORE kosong. Pergi isi di Codemagic → Environment variables"; exit 1
+          fi
           echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
           echo "✅ Keystore decoded -> $CM_KEYSTORE_PATH"
+          ls -lh "$CM_KEYSTORE_PATH"
 
       - name: Install dependencies
-        script: npm ci
-
-      - name: Ensure android folder exists
         script: |
-          if [ ! -d "android" ]; then
-            echo "⚙️ Android folder not found. Running Expo prebuild..."
-            npx expo prebuild --platform android --clean
-          else
-            echo "✅ Android folder exists."
-          fi
+          npm ci
+
+      - name: Expo prebuild (force clean)
+        script: |
+          npx expo prebuild --platform android --clean --non-interactive
+          echo "✅ Expo prebuild done"
 
       - name: Build signed release APK
         script: |
           cd android
-          ./gradlew assembleRelease \
+          ./gradlew --no-daemon assembleRelease \
             -Pandroid.injected.signing.store.file=$CM_KEYSTORE_PATH \
             -Pandroid.injected.signing.store.password=$CM_KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$CM_KEY_ALIAS \
@@ -37,3 +43,9 @@ workflows:
 
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
+
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - node_modules
