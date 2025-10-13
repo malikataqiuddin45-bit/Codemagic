@@ -4,8 +4,6 @@ workflows:
     environment:
       node: 20
       java: 17
-      android_signing:
-        - keystore_reference   # configure in CodeMagic UI
     scripts:
       - name: Install CLIs
         script: |
