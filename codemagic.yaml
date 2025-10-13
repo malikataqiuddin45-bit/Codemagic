@@ -5,7 +5,7 @@ workflows:
     max_build_duration: 60
 
     scripts:
-      - name: Install deps
+      - name: Install dependencies
         script: npm ci
 
       - name: Expo prebuild (android)
