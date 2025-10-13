@@ -90,7 +90,7 @@ android {
     namespace 'com.redsulphur.forensiknama'
     defaultConfig {
         applicationId 'com.redsulphur.forensiknama'
-        minSdkVersion rootProject.ext.minSdkVersion
+        minSdkVersion 23
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
@@ -153,6 +153,12 @@ android {
 }
 
 dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+    implementation("host.exp.exponent:expo-modules-core:0.18.0")
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+    implementation("host.exp.exponent:expo-modules-core:0.18.0")
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
@@ -182,6 +188,12 @@ dependencies {
 }
 
 dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+    implementation("host.exp.exponent:expo-modules-core:0.18.0")
+    implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
+    implementation("host.exp.exponent:expo-modules-core:0.18.0")
   implementation("expo.modules:expo-modules-core")
   implementation("expo.modules:expo-modules-application")
 }
