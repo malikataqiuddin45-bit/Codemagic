@@ -17,13 +17,10 @@ class MainApplication : Application(), ReactApplication {
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
     this,
     object : DefaultReactNativeHost(this) {
-      override fun getPackages(): List<ReactPackage> =
-        PackageList(this).packages
-
-      override fun getJSMainModuleName(): String = "index"
-
-      override fun isNewArchEnabled(): Boolean = DefaultNewArchitectureEntryPoint.getFabricEnabled()
-      override fun isHermesEnabled(): Boolean = BuildConfig.IS_HERMES_ENABLED
+      override fun getPackages(): List<ReactPackage> = PackageList(this).packages
+      override fun getJSMainModuleName() = "index"
+      override fun isNewArchEnabled() = DefaultNewArchitectureEntryPoint.getFabricEnabled()
+      override fun isHermesEnabled() = BuildConfig.IS_HERMES_ENABLED
     }
   )
 
