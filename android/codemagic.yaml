@@ -10,38 +10,47 @@ workflows:
       node: 20.12.2
       java: 17
     scripts:
-      - name: 🔧 Install dependencies
+      - name: 🔧 Install dependencies & jetifier
         script: |
+          echo "== Install deps =="
           npm install -g expo-cli
           npm install
-          npm install jetifier --save-dev || true
+          npm install --save-dev jetifier || true
+          npx jetify || true
 
-      - name: 🏗️ Prebuild Android (clean)
+      - name: 🏗️ Expo prebuild (clean)
         script: |
+          echo "== Expo Prebuild Android =="
           npx expo prebuild --platform android --clean
           cd android
           chmod +x gradlew
 
-      - name: 🧩 Pin Gradle & Kotlin
+      - name: 🧩 Pin Gradle 8.6 + Kotlin 1.9.22 (mac-safe perl patch)
         script: |
+          echo "== Patching Gradle Wrapper & Kotlin =="
           cd android
-          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties
+          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties || true
           if [ -f build.gradle ]; then
             perl -pi -e 's/ext\.kotlin_version\s*=.*/ext.kotlin_version = "1.9.22"/g' build.gradle || true
           fi
 
-      - name: 🩹 Patch expo autolinking (extensions/extra)
+      - name: �� Fix Expo Autolinking Plugin (extensions/extra)
         script: |
+          echo "== Patching Expo Autolinking Plugin =="
           PLUG_DIR="node_modules/expo-modules-autolinking/android/expo-gradle-plugin"
           if [ -d "$PLUG_DIR" ]; then
             find "$PLUG_DIR" -name "SettingsManager.kt" -print0 | while IFS= read -r -d '' f; do
-              sed -i '' 's/\<extensions\>/project.extensions/g' "$f" || true
-              sed -i '' 's/\<extra\>/project.extra/g' "$f" || true
+              perl -pi -e 's/\<extensions\>/project.extensions/g' "$f" || true
+              perl -pi -e 's/\<extra\>/project.extra/g' "$f" || true
+              echo "✔ Patched: $f"
             done
+          else
+            echo "⚠️  Plugin expo-modules-autolinking tidak dijumpai!"
           fi
 
       - name: 🧹 Build Debug APK
         script: |
+          echo "== Build APK =="
           cd android
           ./gradlew clean
           ./gradlew :app:assembleDebug --no-daemon --warning-mode all --stacktrace
