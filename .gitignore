@@ -12,3 +12,4 @@ yarn-error.log*
 *.apk
 android/app/build/
 android/.gradle/
+android/local.properties

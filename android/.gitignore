@@ -1,16 +1,15 @@
-# OSX
-#
-.DS_Store
-
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
 *.iml
-*.hprof
-.cxx/
-
-# Bundle artifacts
-*.jsbundle
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
