@@ -10,10 +10,11 @@ workflows:
       node: 20.12.2
       java: 17
     scripts:
-      - name: 🔧 Install deps
+      - name: 🔧 Install dependencies
         script: |
+          npm install -g expo-cli
           npm install
-          npx --yes jetify || true
+          npm install jetifier --save-dev || true
 
       - name: 🏗️ Prebuild Android (clean)
         script: |
@@ -21,22 +22,12 @@ workflows:
           cd android
           chmod +x gradlew
 
-      - name: 🧩 Pin Gradle & Kotlin (Expo 54 serasi)
+      - name: 🧩 Pin Gradle & Kotlin
         script: |
           cd android
-          # Gradle 8.6
-          sed -i 's#^distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties
-          # Kotlin plugin 1.9.22 (dua gaya fail disokong)
-          if grep -q 'ext.kotlin_version' build.gradle 2>/dev/null; then
-            sed -i 's/ext.kotlin_version.*/ext.kotlin_version = "1.9.22"/' build.gradle || true
-          fi
-          if grep -q 'org.jetbrains.kotlin.android' build.gradle 2>/dev/null; then
-            sed -i 's/\(id "org.jetbrains.kotlin.android" version "\)[^"]*\(".*\)/\11.9.22\2/' build.gradle || true
-          fi
-          if [ -f build.gradle.kts ]; then
-            if grep -q 'id("org.jetbrains.kotlin.android")' build.gradle.kts; then
-              sed -i 's/\(id("org.jetbrains.kotlin.android") version "\)[^"]*\(".*\)/\11.9.22\2/' build.gradle.kts || true
-            fi
+          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties
+          if [ -f build.gradle ]; then
+            perl -pi -e 's/ext\.kotlin_version\s*=.*/ext.kotlin_version = "1.9.22"/g' build.gradle || true
           fi
 
       - name: 🩹 Patch expo autolinking (extensions/extra)
@@ -44,13 +35,12 @@ workflows:
           PLUG_DIR="node_modules/expo-modules-autolinking/android/expo-gradle-plugin"
           if [ -d "$PLUG_DIR" ]; then
             find "$PLUG_DIR" -name "SettingsManager.kt" -print0 | while IFS= read -r -d '' f; do
-              sed -i 's/\<extensions\>/project.extensions/g' "$f" || true
-              sed -i 's/\<extra\>/project.extra/g' "$f" || true
-              echo "Patched: $f"
+              sed -i '' 's/\<extensions\>/project.extensions/g' "$f" || true
+              sed -i '' 's/\<extra\>/project.extra/g' "$f" || true
             done
           fi
 
-      - name: 🧹 Clean & Build Debug APK
+      - name: 🧹 Build Debug APK
         script: |
           cd android
           ./gradlew clean
