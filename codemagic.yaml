@@ -22,7 +22,7 @@ workflows:
       - name: Build Debug APK
         script: |
           cd android
-          ./gradlew clean :app:assembleDebug
+          ./gradlew clean :app:assembleDebug --stacktrace --info
           cd ..
           ls -lah android/app/build/outputs/apk/debug || true
     artifacts:
