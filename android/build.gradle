@@ -1,0 +1,32 @@
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+  }
+  dependencies {
+    classpath("com.android.tools.build:gradle:8.7.0")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25")
+  }
+}
+allprojects {
+  repositories {
+    google()
+    mavenCentral()
+  }
+}
+tasks.register("clean", Delete) {
+  delete(rootProject.buildDir)
+}
+
+// 🧩 Auto-added by Autopatch
+subprojects {
+  configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == "org.jetbrains.kotlin") {
+        details.useVersion("1.9.24")
+        details.because("Force all modules to use Kotlin 1.9.24 to avoid Expo autolinking mismatch")
+      }
+    }
+  }
+}

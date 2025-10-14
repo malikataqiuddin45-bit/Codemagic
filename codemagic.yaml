@@ -1,49 +1,140 @@
 workflows:
-  debug-apk:
-    name: Debug APK Build (Expo 54 macOS safe)
+  expo_debug_gradle_8_7:
+    name: "Expo Debug Build (Gradle 8.7 / Kotlin 1.9.24) + Deep Logs"
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     environment:
       vars:
-        CI: true
-        EXPO_NO_INTERACTIVE: 1
-      node: 20.12.2
-      java: 17
+        GRADLE_VERSION: "8.7"
+        AGP_VERSION: "8.7.0"
+        KOTLIN_VERSION: "1.9.24"
+        JAVA_VERSION: "17"
+      android:
+        build_mode: debug
+        gradle_wrapper_path: "android/gradlew"
+
     scripts:
-      - name: 🔧 Install dependencies
+      - name: 🔧 Setup JDK 17
         script: |
-          npm install -g expo-cli
-          npm install
-          npm install --save-dev jetifier
-          npx jetify || true
+          export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
+          java -version
 
-      - name: 🏗️ Expo prebuild (clean)
+      - name: 🩹 Ensure Gradle Wrapper ${GRADLE_VERSION}
         script: |
-          npx expo prebuild --platform android --clean
-          cd android
-          chmod +x gradlew
+          mkdir -p android/gradle/wrapper
+          cat > android/gradle/wrapper/gradle-wrapper.properties <<EOF
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          networkTimeout=10000
+          EOF
+          chmod +x android/gradlew || true
 
-      - name: 🧩 Pin Gradle & Kotlin (Perl patch)
+      - name: 🧩 Pin AGP & Kotlin plugin + Force Kotlin for all modules
         script: |
-          cd android
-          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties || true
-          perl -pi -e 's/ext\.kotlin_version\s*=.*/ext.kotlin_version = "1.9.22"/g' build.gradle || true
+          # Root build.gradle: set kotlin_version + classpaths + force stdlib alignment
+          if [ -f android/build.gradle ]; then
+            grep -q "ext {.*kotlin_version" android/build.gradle || \
+              sed -i "" "s/buildscript *{ */buildscript {\\
+  ext { kotlin_version = \\"${KOTLIN_VERSION}\\" }/" android/build.gradle
+            grep -q "kotlin-gradle-plugin" android/build.gradle || \
+              sed -i "" "/dependencies *{/a\\
+    classpath(\\"org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlin_version}\\")" android/build.gradle
+            if grep -q "com.android.tools.build:gradle" android/build.gradle; then
+              sed -i "" "s/com\\.android\\.tools\\.build:gradle:[0-9.]\\+/com.android.tools.build:gradle:${AGP_VERSION}/" android/build.gradle
+            else
+              sed -i "" "/dependencies *{/a\\
+    classpath(\\"com.android.tools.build:gradle:${AGP_VERSION}\\")" android/build.gradle
+            fi
+          else
+            cat > android/build.gradle <<EOF
+buildscript {
+  ext { kotlin_version = "${KOTLIN_VERSION}" }
+  repositories { google(); mavenCentral(); gradlePluginPortal() }
+  dependencies {
+    classpath("com.android.tools.build:gradle:${AGP_VERSION}")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlin_version}")
+  }
+}
+allprojects { repositories { google(); mavenCentral() } }
+tasks.register("clean", Delete) { delete(rootProject.buildDir) }
+EOF
+          fi
+          if ! grep -q "resolutionStrategy.eachDependency" android/build.gradle; then
+            cat >> android/build.gradle <<EOF
 
-      - name: 🩹 Patch Expo autolinking
-        script: |
-          PLUG_DIR="node_modules/expo-modules-autolinking/android/expo-gradle-plugin"
-          if [ -d "$PLUG_DIR" ]; then
-            find "$PLUG_DIR" -name "SettingsManager.kt" -print0 | while IFS= read -r -d '' f; do
-              perl -pi -e 's/\<extensions\>/project.extensions/g' "$f" || true
-              perl -pi -e 's/\<extra\>/project.extra/g' "$f" || true
-            done
+// Auto-added: force Kotlin stdlib alignment
+subprojects {
+  configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == "org.jetbrains.kotlin") {
+        details.useVersion("${KOTLIN_VERSION}")
+        details.because("Align Kotlin version across all modules to avoid Expo autolinking mismatch")
+      }
+    }
+  }
+}
+EOF
           fi
 
-      - name: 🧹 Build Debug APK
+      - name: 🛠️ Ensure app/build.gradle (jvmTarget=17 + debug type + freeCompilerArgs)
+        script: |
+          if [ -f android/app/build.gradle ]; then
+            # jvmTarget=17
+            sed -i "" "s/jvmTarget *= *\\"[^\\"]*\\"/jvmTarget = \\"17\\"/" android/app/build.gradle || true
+            # add freeCompilerArgs if missing
+            grep -q "freeCompilerArgs" android/app/build.gradle || \
+              sed -i "" "/kotlinOptions *{/,/}/ s/}/  \n  freeCompilerArgs += [\\"-Xjvm-default=all-compatibility\\"]\n}/" android/app/build.gradle || true
+            # debug buildType jika tak wujud
+            grep -q "buildTypes" android/app/build.gradle || \
+              sed -i "" "/defaultConfig *{/a\\
+  buildTypes {\\n    debug {\\n      debuggable true\\n      minifyEnabled false\\n      applicationIdSuffix \\".debug\\"\\n      versionNameSuffix \\"-debug\\"\\n    }\\n  }" android/app/build.gradle
+          fi
+
+      - name: 🔎 Dependency insight (Kotlin & Coroutines)
+        script: |
+          mkdir -p build_artifacts
+          cd android
+          ./gradlew :app:dependencies --configuration debugCompileClasspath -q > ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib -q >> ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib-jdk8 -q >> ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlinx:kotlinx-coroutines-core -q >> ../build_artifacts/dependencies.txt || true
+          cd ..
+
+      - name: 🧹 Compile (in-process + plain console) & Build Debug APK
         script: |
           cd android
-          ./gradlew clean
-          ./gradlew :app:assembleDebug --no-daemon --warning-mode all --stacktrace
+          # Paksa in-process compiler + console plain untuk log penuh
+          export GRADLE_OPTS="-Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx4g"
+          # Step 1: compile debug kotlin dengan log penuh dan TEEd ke artifact
+          ./gradlew :app:compileDebugKotlin \
+            --no-daemon --no-parallel --console=plain \
+            --stacktrace --info --warning-mode all \
+            2>&1 | tee ../build_artifacts/kotlin_compile.log || true
+          # Step 2: cuba assemble (akan fail kalau compile gagal, tapi log sudah disimpan)
+          ./gradlew clean assembleDebug \
+            --no-daemon --console=plain \
+            --stacktrace --info --warning-mode all
+          cd ..
+          echo "✅ Debug build completed"
+
+      - name: 📦 Collect APK
+        script: |
+          mkdir -p build_artifacts
+          find android/app/build/outputs/apk/debug -name "*.apk" -exec cp {} build_artifacts/ \;
+          echo "✅ APK copied to build_artifacts/"
 
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - build_artifacts/*.apk
+      - build_artifacts/dependencies.txt
+      - build_artifacts/kotlin_compile.log
+
+    publishing:
+      email:
+        recipients:
+          - "youremail@example.com"
+        notify:
+          success: true
+          failure: true
