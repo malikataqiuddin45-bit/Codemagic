@@ -50,3 +50,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
+plugins {
+    id("com.android.application") version "8.7.0"
+    id("org.jetbrains.kotlin.android") version "1.9.24"
+}
