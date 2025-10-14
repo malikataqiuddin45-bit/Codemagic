@@ -1,98 +1,49 @@
 workflows:
-  expo_android_debug_fast:
-    name: Debug APK (compile) + LOCAL tools installed
-    instance_type: mac_mini_m1
+  debug-apk:
+    name: Debug APK Build (Expo 54 macOS safe)
     max_build_duration: 60
+    instance_type: mac_mini_m1
     environment:
-      vars: { NODE_VERSION: "20", JAVA_VERSION: "17" }
+      vars:
+        CI: true
+        EXPO_NO_INTERACTIVE: 1
+      node: 20.12.2
+      java: 17
     scripts:
-      - name: Setup Node + Python + install LOCAL codemagic-cli-tools
+      - name: 🔧 Install dependencies
         script: |
-          nvm install $NODE_VERSION && nvm use $NODE_VERSION
-          python3 -m pip install --upgrade pip
-          test -d tools/codemagic_cli_tools || { echo "tools/codemagic_cli_tools tiada"; exit 1; }
-          python3 -m pip install ./tools/codemagic_cli_tools
-      - name: Install deps
-        script: |
-          if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm ci; fi
-      - name: Expo prebuild + pins (Gradle/Kotlin/Java)
-        script: |
-          npx expo prebuild --platform android --non-interactive
+          npm install -g expo-cli
+          npm install
+          npm install --save-dev jetifier
           npx jetify || true
-          sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip#g' android/gradle/wrapper/gradle-wrapper.properties
-          perl -0777 -pe 's/(id\s+["'\'']org\.jetbrains\.kotlin\.android["'\'']\s+version\s+["'\'']).*?(["'\''])/\1 1.9.24 \2/g' -i android/build.gradle || true
-          perl -0777 -pe 's/compileOptions\s*\{[^}]*\}/compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }/s' -i android/app/build.gradle || true
-          if grep -q "kotlinOptions" android/app/build.gradle; then
-            perl -0777 -pe 's/kotlinOptions\s*\{[^}]*\}/kotlinOptions {\n        jvmTarget = "17"\n    }/s' -i android/app/build.gradle
-          else
-            sed -i '/android\s*{.*/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' android/app/build.gradle
-          fi
-      - name: Compile Kotlin (biar error baris keluar jelas)
-        script: |
-          cd android
-          ./gradlew :app:compileDebugKotlin --stacktrace --info --warning-mode all
-          cd ..
-      - name: Build Debug APK
-        script: |
-          cd android
-          ./gradlew :app:assembleDebug --stacktrace --info --warning-mode all
-          cd ..
-    artifacts:
-      - android/app/build/outputs/apk/debug/*.apk
 
-  expo_android_release_signed_LOCAL:
-    name: Release SIGNED (AAB + universal.apk) via LOCAL codemagic-cli-tools
-    instance_type: mac_mini_m1
-    max_build_duration: 60
-    environment:
-      vars: { NODE_VERSION: "20", JAVA_VERSION: "17" }
-    scripts:
-      - name: Setup Node + Python + install LOCAL codemagic-cli-tools
+      - name: 🏗️ Expo prebuild (clean)
         script: |
-          nvm install $NODE_VERSION && nvm use $NODE_VERSION
-          python3 -m pip install --upgrade pip
-          test -d tools/codemagic_cli_tools || { echo "tools/codemagic_cli_tools tiada"; exit 1; }
-          python3 -m pip install ./tools/codemagic_cli_tools
-      - name: Install deps
-        script: |
-          if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm ci; fi
-      - name: Expo prebuild + pins (Gradle/Kotlin/Java)
-        script: |
-          npx expo prebuild --platform android --non-interactive
-          npx jetify || true
-          sed -i 's#distributionUrl=.*#distributionUrl=https\://services.gradle.org/distributions/gradle-8.7-bin.zip#g' android/gradle/wrapper/gradle-wrapper.properties
-          perl -0777 -pe 's/(id\s+["'\'']org\.jetbrains\.kotlin\.android["'\'']\s+version\s+["'\'']).*?(["'\''])/\1 1.9.24 \2/g' -i android/build.gradle || true
-          perl -0777 -pe 's/compileOptions\s*\{[^}]*\}/compileOptions {\n        sourceCompatibility JavaVersion.VERSION_17\n        targetCompatibility JavaVersion.VERSION_17\n    }/s' -i android/app/build.gradle || true
-          if grep -q "kotlinOptions" android/app/build.gradle; then
-            perl -0777 -pe 's/kotlinOptions\s*\{[^}]*\}/kotlinOptions {\n        jvmTarget = "17"\n    }/s' -i android/app/build.gradle
-          else
-            sed -i '/android\s*{.*/a\    kotlinOptions {\n        jvmTarget = "17"\n    }' android/app/build.gradle
-          fi
-      - name: Build AAB (release)
+          npx expo prebuild --platform android --clean
+          cd android
+          chmod +x gradlew
+
+      - name: 🧩 Pin Gradle & Kotlin (Perl patch)
         script: |
           cd android
-          ./gradlew clean :app:bundleRelease --stacktrace --info --warning-mode all
-          cd ..
-      - name: Decode keystore & SIGN AAB (LOCAL tools)
+          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties || true
+          perl -pi -e 's/ext\.kotlin_version\s*=.*/ext.kotlin_version = "1.9.22"/g' build.gradle || true
+
+      - name: 🩹 Patch Expo autolinking
         script: |
-          echo "\$ANDROID_KEYSTORE_BASE64" | base64 -d > keystore.jks
-          AAB=android/app/build/outputs/bundle/release/app-release.aab
-          android-app-bundle sign \
-            --bundle "\$AAB" \
-            --ks keystore.jks \
-            --ks-pass "\$ANDROID_KEYSTORE_PASSWORD" \
-            --ks-key-alias "\$ANDROID_KEY_ALIAS" \
-            --key-pass "\$ANDROID_KEY_PASSWORD" -s
-      - name: Build universal APK (LOCAL tools)
+          PLUG_DIR="node_modules/expo-modules-autolinking/android/expo-gradle-plugin"
+          if [ -d "$PLUG_DIR" ]; then
+            find "$PLUG_DIR" -name "SettingsManager.kt" -print0 | while IFS= read -r -d '' f; do
+              perl -pi -e 's/\<extensions\>/project.extensions/g' "$f" || true
+              perl -pi -e 's/\<extra\>/project.extra/g' "$f" || true
+            done
+          fi
+
+      - name: 🧹 Build Debug APK
         script: |
-          AAB=android/app/build/outputs/bundle/release/app-release.aab
-          android-app-bundle build-universal-apk \
-            --bundle "\$AAB" \
-            --output android/app/build/outputs/universal.apk \
-            --ks keystore.jks \
-            --ks-pass "\$ANDROID_KEYSTORE_PASSWORD" \
-            --ks-key-alias "\$ANDROID_KEY_ALIAS" \
-            --key-pass "\$ANDROID_KEY_PASSWORD" -s
+          cd android
+          ./gradlew clean
+          ./gradlew :app:assembleDebug --no-daemon --warning-mode all --stacktrace
+
     artifacts:
-      - android/app/build/outputs/bundle/release/*.aab
-      - android/app/build/outputs/universal.apk
+      - android/app/build/outputs/**/*.apk
