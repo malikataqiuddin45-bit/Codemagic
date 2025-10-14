@@ -1,6 +1,6 @@
 workflows:
   expo_debug_gradle_8_7:
-    name: "Expo Debug Build (Gradle 8.7 / Kotlin 1.9.24)"
+    name: "Expo Debug Build (Gradle 8.7 / Kotlin 1.9.24) + Deep Logs"
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -34,6 +34,7 @@ workflows:
 
       - name: 🧩 Pin AGP & Kotlin plugin + Force Kotlin for all modules
         script: |
+          # Root build.gradle: set kotlin_version + classpaths + force stdlib alignment
           if [ -f android/build.gradle ]; then
             grep -q "ext {.*kotlin_version" android/build.gradle || \
               sed -i "" "s/buildscript *{ */buildscript {\\
@@ -64,6 +65,7 @@ EOF
           if ! grep -q "resolutionStrategy.eachDependency" android/build.gradle; then
             cat >> android/build.gradle <<EOF
 
+// Auto-added: force Kotlin stdlib alignment
 subprojects {
   configurations.configureEach {
     resolutionStrategy.eachDependency { details ->
@@ -77,28 +79,44 @@ subprojects {
 EOF
           fi
 
-      - name: 🛠️ Ensure app/build.gradle jvmTarget=17 (debug)
+      - name: 🛠️ Ensure app/build.gradle (jvmTarget=17 + debug type + freeCompilerArgs)
         script: |
           if [ -f android/app/build.gradle ]; then
+            # jvmTarget=17
             sed -i "" "s/jvmTarget *= *\\"[^\\"]*\\"/jvmTarget = \\"17\\"/" android/app/build.gradle || true
+            # add freeCompilerArgs if missing
+            grep -q "freeCompilerArgs" android/app/build.gradle || \
+              sed -i "" "/kotlinOptions *{/,/}/ s/}/  \n  freeCompilerArgs += [\\"-Xjvm-default=all-compatibility\\"]\n}/" android/app/build.gradle || true
+            # debug buildType jika tak wujud
             grep -q "buildTypes" android/app/build.gradle || \
               sed -i "" "/defaultConfig *{/a\\
   buildTypes {\\n    debug {\\n      debuggable true\\n      minifyEnabled false\\n      applicationIdSuffix \\".debug\\"\\n      versionNameSuffix \\"-debug\\"\\n    }\\n  }" android/app/build.gradle
           fi
 
-      - name: 🔎 Dependency diagnostics
+      - name: 🔎 Dependency insight (Kotlin & Coroutines)
         script: |
           mkdir -p build_artifacts
           cd android
           ./gradlew :app:dependencies --configuration debugCompileClasspath -q > ../build_artifacts/dependencies.txt || true
           ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib -q >> ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib-jdk8 -q >> ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlinx:kotlinx-coroutines-core -q >> ../build_artifacts/dependencies.txt || true
           cd ..
 
-      - name: 🧹 Build Debug APK (verbose)
+      - name: 🧹 Compile (in-process + plain console) & Build Debug APK
         script: |
           cd android
-          ./gradlew --version
-          ./gradlew clean assembleDebug --no-daemon --stacktrace --info --warning-mode all
+          # Paksa in-process compiler + console plain untuk log penuh
+          export GRADLE_OPTS="-Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs=-Xmx4g"
+          # Step 1: compile debug kotlin dengan log penuh dan TEEd ke artifact
+          ./gradlew :app:compileDebugKotlin \
+            --no-daemon --no-parallel --console=plain \
+            --stacktrace --info --warning-mode all \
+            2>&1 | tee ../build_artifacts/kotlin_compile.log || true
+          # Step 2: cuba assemble (akan fail kalau compile gagal, tapi log sudah disimpan)
+          ./gradlew clean assembleDebug \
+            --no-daemon --console=plain \
+            --stacktrace --info --warning-mode all
           cd ..
           echo "✅ Debug build completed"
 
@@ -111,6 +129,7 @@ EOF
     artifacts:
       - build_artifacts/*.apk
       - build_artifacts/dependencies.txt
+      - build_artifacts/kotlin_compile.log
 
     publishing:
       email:
