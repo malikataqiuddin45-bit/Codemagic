@@ -13,3 +13,10 @@ yarn-error.log*
 android/app/build/
 android/.gradle/
 android/local.properties
+
+# Autopatch additions
+build/
+\.gradle/
+local.properties
+*.iml
+build_artifacts/

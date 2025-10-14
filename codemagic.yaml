@@ -1,49 +1,80 @@
 workflows:
-  debug-apk:
-    name: Debug APK Build (Expo 54 macOS safe)
+  expo_debug_gradle_8_7:
+    name: "Expo Debug Build (Gradle 8.7 / Kotlin 1.9.24)"
     max_build_duration: 60
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
     environment:
       vars:
-        CI: true
-        EXPO_NO_INTERACTIVE: 1
-      node: 20.12.2
-      java: 17
+        GRADLE_VERSION: "8.7"
+        AGP_VERSION: "8.7.0"
+        KOTLIN_VERSION: "1.9.24"
+        JAVA_VERSION: "17"
+      android:
+        build_mode: debug
+        gradle_wrapper_path: "android/gradlew"
+
     scripts:
-      - name: 🔧 Install dependencies
+      - name: 🔧 Setup JDK & Env
         script: |
-          npm install -g expo-cli
-          npm install
-          npm install --save-dev jetifier
-          npx jetify || true
+          echo "== Setup JDK ${JAVA_VERSION} =="
+          export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
+          java -version
 
-      - name: 🏗️ Expo prebuild (clean)
+      - name: 🩹 Autopatch Gradle Wrapper
         script: |
-          npx expo prebuild --platform android --clean
-          cd android
-          chmod +x gradlew
+          echo "== Ensure Gradle Wrapper ${GRADLE_VERSION} =="
+          mkdir -p android/gradle/wrapper
+          cat > android/gradle/wrapper/gradle-wrapper.properties <<EOF
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          networkTimeout=10000
+          EOF
+          chmod +x android/gradlew || true
 
-      - name: 🧩 Pin Gradle & Kotlin (Perl patch)
+      - name: 🧩 Force Kotlin Version (for Expo autolinking)
         script: |
-          cd android
-          perl -pi -e 's#distributionUrl=.*#distributionUrl=https://services.gradle.org/distributions/gradle-8.6-bin.zip#g' gradle/wrapper/gradle-wrapper.properties || true
-          perl -pi -e 's/ext\.kotlin_version\s*=.*/ext.kotlin_version = "1.9.22"/g' build.gradle || true
+          echo "== Forcing Kotlin ${KOTLIN_VERSION} for all modules =="
+          # Tambah block force Kotlin jika belum ada
+          if [ -f android/build.gradle ] && ! grep -q "resolutionStrategy.eachDependency" android/build.gradle; then
+            cat >> android/build.gradle <<EOF
 
-      - name: 🩹 Patch Expo autolinking
-        script: |
-          PLUG_DIR="node_modules/expo-modules-autolinking/android/expo-gradle-plugin"
-          if [ -d "$PLUG_DIR" ]; then
-            find "$PLUG_DIR" -name "SettingsManager.kt" -print0 | while IFS= read -r -d '' f; do
-              perl -pi -e 's/\<extensions\>/project.extensions/g' "$f" || true
-              perl -pi -e 's/\<extra\>/project.extra/g' "$f" || true
-            done
+          // 🧩 Auto-added by Codemagic YAML
+          subprojects {
+            configurations.configureEach {
+              resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == "org.jetbrains.kotlin") {
+                  details.useVersion("${KOTLIN_VERSION}")
+                  details.because("Force all modules to use Kotlin ${KOTLIN_VERSION} to avoid Expo autolinking mismatch")
+                }
+              }
+            }
+          }
+          EOF
           fi
 
-      - name: 🧹 Build Debug APK
+      - name: 🏗️ Build Debug APK (verbose)
         script: |
           cd android
-          ./gradlew clean
-          ./gradlew :app:assembleDebug --no-daemon --warning-mode all --stacktrace
+          ./gradlew --version
+          ./gradlew clean assembleDebug --no-daemon --stacktrace --info --warning-mode all
+          cd ..
+
+      - name: 📦 Collect APK
+        script: |
+          mkdir -p build_artifacts
+          find android/app/build/outputs/apk/debug -name "*.apk" -exec cp {} build_artifacts/ \;
+          echo "✅ APK copied to build_artifacts/"
 
     artifacts:
-      - android/app/build/outputs/**/*.apk
+      - build_artifacts/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - "youremail@example.com"
+        notify:
+          success: true
+          failure: true
