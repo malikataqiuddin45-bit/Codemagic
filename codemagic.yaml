@@ -14,15 +14,13 @@ workflows:
         gradle_wrapper_path: "android/gradlew"
 
     scripts:
-      - name: 🔧 Setup JDK & Env
+      - name: 🔧 Setup JDK 17
         script: |
-          echo "== Setup JDK ${JAVA_VERSION} =="
           export JAVA_HOME=$(/usr/libexec/java_home -v ${JAVA_VERSION})
           java -version
 
-      - name: 🩹 Autopatch Gradle Wrapper
+      - name: 🩹 Ensure Gradle Wrapper ${GRADLE_VERSION}
         script: |
-          echo "== Ensure Gradle Wrapper ${GRADLE_VERSION} =="
           mkdir -p android/gradle/wrapper
           cat > android/gradle/wrapper/gradle-wrapper.properties <<EOF
           distributionBase=GRADLE_USER_HOME
@@ -34,33 +32,75 @@ workflows:
           EOF
           chmod +x android/gradlew || true
 
-      - name: 🧩 Force Kotlin Version (for Expo autolinking)
+      - name: 🧩 Pin AGP & Kotlin plugin + Force Kotlin for all modules
         script: |
-          echo "== Forcing Kotlin ${KOTLIN_VERSION} for all modules =="
-          # Tambah block force Kotlin jika belum ada
-          if [ -f android/build.gradle ] && ! grep -q "resolutionStrategy.eachDependency" android/build.gradle; then
+          if [ -f android/build.gradle ]; then
+            grep -q "ext {.*kotlin_version" android/build.gradle || \
+              sed -i "" "s/buildscript *{ */buildscript {\\
+  ext { kotlin_version = \\"${KOTLIN_VERSION}\\" }/" android/build.gradle
+            grep -q "kotlin-gradle-plugin" android/build.gradle || \
+              sed -i "" "/dependencies *{/a\\
+    classpath(\\"org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlin_version}\\")" android/build.gradle
+            if grep -q "com.android.tools.build:gradle" android/build.gradle; then
+              sed -i "" "s/com\\.android\\.tools\\.build:gradle:[0-9.]\\+/com.android.tools.build:gradle:${AGP_VERSION}/" android/build.gradle
+            else
+              sed -i "" "/dependencies *{/a\\
+    classpath(\\"com.android.tools.build:gradle:${AGP_VERSION}\\")" android/build.gradle
+            fi
+          else
+            cat > android/build.gradle <<EOF
+buildscript {
+  ext { kotlin_version = "${KOTLIN_VERSION}" }
+  repositories { google(); mavenCentral(); gradlePluginPortal() }
+  dependencies {
+    classpath("com.android.tools.build:gradle:${AGP_VERSION}")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlin_version}")
+  }
+}
+allprojects { repositories { google(); mavenCentral() } }
+tasks.register("clean", Delete) { delete(rootProject.buildDir) }
+EOF
+          fi
+          if ! grep -q "resolutionStrategy.eachDependency" android/build.gradle; then
             cat >> android/build.gradle <<EOF
 
-          // 🧩 Auto-added by Codemagic YAML
-          subprojects {
-            configurations.configureEach {
-              resolutionStrategy.eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                  details.useVersion("${KOTLIN_VERSION}")
-                  details.because("Force all modules to use Kotlin ${KOTLIN_VERSION} to avoid Expo autolinking mismatch")
-                }
-              }
-            }
-          }
-          EOF
+subprojects {
+  configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+      if (details.requested.group == "org.jetbrains.kotlin") {
+        details.useVersion("${KOTLIN_VERSION}")
+        details.because("Align Kotlin version across all modules to avoid Expo autolinking mismatch")
+      }
+    }
+  }
+}
+EOF
           fi
 
-      - name: 🏗️ Build Debug APK (verbose)
+      - name: 🛠️ Ensure app/build.gradle jvmTarget=17 (debug)
+        script: |
+          if [ -f android/app/build.gradle ]; then
+            sed -i "" "s/jvmTarget *= *\\"[^\\"]*\\"/jvmTarget = \\"17\\"/" android/app/build.gradle || true
+            grep -q "buildTypes" android/app/build.gradle || \
+              sed -i "" "/defaultConfig *{/a\\
+  buildTypes {\\n    debug {\\n      debuggable true\\n      minifyEnabled false\\n      applicationIdSuffix \\".debug\\"\\n      versionNameSuffix \\"-debug\\"\\n    }\\n  }" android/app/build.gradle
+          fi
+
+      - name: 🔎 Dependency diagnostics
+        script: |
+          mkdir -p build_artifacts
+          cd android
+          ./gradlew :app:dependencies --configuration debugCompileClasspath -q > ../build_artifacts/dependencies.txt || true
+          ./gradlew :app:dependencyInsight --configuration debugCompileClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib -q >> ../build_artifacts/dependencies.txt || true
+          cd ..
+
+      - name: 🧹 Build Debug APK (verbose)
         script: |
           cd android
           ./gradlew --version
           ./gradlew clean assembleDebug --no-daemon --stacktrace --info --warning-mode all
           cd ..
+          echo "✅ Debug build completed"
 
       - name: 📦 Collect APK
         script: |
@@ -70,6 +110,7 @@ workflows:
 
     artifacts:
       - build_artifacts/*.apk
+      - build_artifacts/dependencies.txt
 
     publishing:
       email:
