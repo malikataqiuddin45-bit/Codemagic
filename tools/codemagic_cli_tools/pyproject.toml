@@ -1,0 +1,118 @@
+[tool.poetry]
+name = "codemagic-cli-tools"
+version = "0.61.1"
+description = "CLI tools used in Codemagic builds"
+readme = "README.md"
+authors = [
+    "Priit Lätt <priit@nevercode.io>"
+]
+license = "GPL-3.0-or-later"
+packages = [
+    { include = "codemagic", from = "src" },
+]
+include = [
+    { path = "tests", format = "sdist" },
+]
+
+homepage = "https://github.com/codemagic-ci-cd/cli-tools"
+repository = "https://github.com/codemagic-ci-cd/cli-tools"
+documentation = "https://github.com/codemagic-ci-cd/cli-tools/tree/master/docs#cli-tools"
+
+[tool.poetry.urls]
+"Issue Tracker" = "https://github.com/codemagic-ci-cd/cli-tools/issues"
+"Changelog" = "https://github.com/codemagic-ci-cd/cli-tools/blob/master/CHANGELOG.md"
+
+[tool.poetry.scripts]
+android-app-bundle = "codemagic.tools:AndroidAppBundle.invoke_cli"
+android-keystore = "codemagic.tools:AndroidKeystore.invoke_cli"
+app-store-connect = "codemagic.tools:AppStoreConnect.invoke_cli"
+codemagic-cli-tools = "codemagic.tools:CodemagicCliTools.invoke_cli"
+firebase-app-distribution = "codemagic.tools:FirebaseAppDistribution.invoke_cli"
+git-changelog = "codemagic.tools:GitChangelog.invoke_cli"
+google-play = "codemagic.tools:GooglePlay.invoke_cli"
+keychain = "codemagic.tools:Keychain.invoke_cli"
+universal-apk = "codemagic.tools:UniversalApkGenerator.invoke_cli"
+xcode-project = "codemagic.tools:XcodeProject.invoke_cli"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+cryptography = ">= 38.0.0"
+google-api-python-client = ">= 2.84.0"
+httplib2 = ">= 0.19.0"
+oauth2client = ">= 4.1.3"
+packaging = ">=22.0"
+psutil = ">= 5.8.0"
+pyjwt = "^2.4.0"
+requests = ">= 2.25"
+python-dateutil = ">= 2.9.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+google-api-python-client-stubs = "*"
+ipdb = "*"
+mdutils = "*"
+mypy = "*"
+pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+types-requests = "*"
+types-psutil = "*"
+types-python-dateutil= "*"
+androguard = ">=4.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+target-version = "py37"
+exclude = [".venv", "stubs"]
+
+[tool.ruff.lint]
+select = [
+    "F",  # https://beta.ruff.rs/docs/rules/#pyflakes-f
+    "E",  # https://beta.ruff.rs/docs/rules/#error-e
+    "W",  # https://beta.ruff.rs/docs/rules/#warning-w
+    "I",  # https://beta.ruff.rs/docs/rules/#isort-i
+    "N",  # https://beta.ruff.rs/docs/rules/#pep8-naming-n
+    "COM",  # https://beta.ruff.rs/docs/rules/#flake8-commas-com
+    "ISC",  # https://beta.ruff.rs/docs/rules/#flake8-implicit-str-concat-isc
+    "ASYNC",  # https://beta.ruff.rs/docs/rules/#flake8-async-async
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"doc.py" = ["E402"]
+"src/codemagic/apple/resources/*.py" = ["N815"]
+"src/codemagic/google/resources/*.py" = ["N815"]
+"src/codemagic/google_play/resources/*.py" = ["N815"]
+"src/codemagic/models/export_options.py" = ["N815"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.mypy]
+mypy_path = "stubs"
+pretty = true
+error_summary = true
+show_error_context = true
+exclude = [
+    "tests/",
+    "doc.py",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "mdutils.mdutils",
+    "mdutils.tools.Table",
+    "androguard.core.apk",
+    "androguard.util",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

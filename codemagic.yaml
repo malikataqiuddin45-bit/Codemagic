@@ -1,20 +1,129 @@
 workflows:
-  expo54-android-unsigned:
-    name: Expo 54 Android Unsigned (Test Build)
-    instance_type: mac_mini_m2
+  # 1) Laju untuk test: APK debug (boleh install, sign debug auto)
+  expo_android_debug_fast:
+    name: Expo Android Debug (fast APK)
     max_build_duration: 60
-
+    instance_type: mac_mini_m1
+    environment:
+      vars: { NODE_VERSION: "20", JAVA_VERSION: "17" }
     scripts:
-      - name: Install dependencies
-        script: npm ci
-
-      - name: Expo prebuild (android)
-        script: npx expo prebuild --platform android --clean --non-interactive
-
-      - name: Build unsigned APK
+      - name: Setup Node & Java
+        script: |
+          nvm install $NODE_VERSION
+          nvm use $NODE_VERSION
+          java -version
+      - name: Install deps
+        script: |
+          if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm ci; fi
+      - name: Expo prebuild (Android)
+        script: |
+          npx expo prebuild --platform android --non-interactive
+          npx jetify || true
+      - name: Build Debug APK
         script: |
           cd android
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew clean :app:assembleDebug
+          cd ..
+          ls -lah android/app/build/outputs/apk/debug || true
+    artifacts:
+      - android/app/build/outputs/apk/debug/*.apk
+
+  # 2) Untuk semak saiz/perf: unsigned AAB + unsigned APK (TAK boleh install)
+  expo_android_release_unsigned:
+    name: Expo Android Release (unsigned bundle & apk)
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      vars: { NODE_VERSION: "20", JAVA_VERSION: "17" }
+    scripts:
+      - name: Setup Node & Java
+        script: |
+          nvm install $NODE_VERSION
+          nvm use $NODE_VERSION
+          java -version
+      - name: Install deps
+        script: |
+          if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm ci; fi
+      - name: Expo prebuild (Android)
+        script: |
+          npx expo prebuild --platform android --non-interactive
+          npx jetify || true
+      - name: Build unsigned AAB + unsigned APK
+        script: |
+          cd android
+          ./gradlew :app:bundleRelease
+          ./gradlew :app:assembleRelease
+          cd ..
+          ls -lah android/app/build/outputs/bundle/release || true
+          ls -lah android/app/build/outputs/apk/release || true
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/apk/release/*-unsigned.apk
+
+  # 3) Release SIGNED: guna keystore sedia ada (env var)
+  expo_android_release_signed:
+    name: Expo Android Release (SIGNED)
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      vars: { NODE_VERSION: "20", JAVA_VERSION: "17" }
+    scripts:
+      - name: Setup Node & Java + CLI Tools
+        script: |
+          nvm install $NODE_VERSION
+          nvm use $NODE_VERSION
+          java -version
+          python3 -m pip install --upgrade pip
+          python3 -m pip install codemagic-cli-tools
+      - name: Install deps
+        script: |
+          if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm ci; fi
+      - name: Expo prebuild (Android)
+        script: |
+          npx expo prebuild --platform android --non-interactive
+          npx jetify || true
+      - name: Build AAB (release)
+        script: |
+          cd android
+          ./gradlew clean :app:bundleRelease
+          cd ..
+      - name: Decode keystore & SIGN AAB
+        script: |
+          # Pastikan env var diset dalam Codemagic Settings
+          test -n "${ANDROID_KEYSTORE_PASSWORD:-}" || { echo "Missing ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "${ANDROID_KEY_ALIAS:-}"         || { echo "Missing ANDROID_KEY_ALIAS"; exit 1; }
+          test -n "${ANDROID_KEY_PASSWORD:-}"      || { echo "Missing ANDROID_KEY_PASSWORD"; exit 1; }
+
+          # Decode base64 → keystore.jks
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > keystore.jks
+          else
+            echo "❌ ANDROID_KEYSTORE_BASE64 kosong. Paste base64 keystore dalam env var."; exit 1
+          fi
+
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$AAB" || (echo "AAB not found"; exit 1)
+
+          android-app-bundle sign \
+            --bundle "$AAB" \
+            --ks keystore.jks \
+            --ks-pass "${ANDROID_KEYSTORE_PASSWORD}" \
+            --ks-key-alias "${ANDROID_KEY_ALIAS}" \
+            --key-pass "${ANDROID_KEY_PASSWORD}" -s
+
+      - name: (Optional) Universal APK untuk sideload
+        script: |
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          OUT=android/app/build/outputs/universal.apk
+          android-app-bundle build-universal-apk \
+            --bundle "$AAB" \
+            --output "$OUT" \
+            --ks keystore.jks \
+            --ks-pass "${ANDROID_KEYSTORE_PASSWORD}" \
+            --ks-key-alias "${ANDROID_KEY_ALIAS}" \
+            --key-pass "${ANDROID_KEY_PASSWORD}" -s
+          ls -lah android/app/build/outputs || true
 
     artifacts:
-      - android/app/build/outputs/apk/release/*.apk
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/universal.apk
